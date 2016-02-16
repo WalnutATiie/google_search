@@ -71,7 +71,7 @@ class BingSearch:
             return keywords
 
     @staticmethod
-    def url_generator(self, query, num):
+    def url_google_generator(self, query, num):
         try:
             assert num > 0 and self.RESULTS_PER_PAGE > 0
         except AssertionError:
@@ -90,9 +90,30 @@ class BingSearch:
                 url = 'https://search.disconnect.me/searchTerms/search?start=nav&option=Web&query='+query+'&ses=Google&location_option=US&nextDDG=%2Fsearch%3Fq%3D%26hl%3Den%26start%3D'+str(first)+'%26sa%3DN&showIcons=false&filterIcons=none&js_enabled=1&source=None'
                 urls.append(url)
             return urls
+    
+    @staticmethod
+    def url_bing_generator(self, query, num):
+        try:
+            assert num > 0 and self.RESULTS_PER_PAGE > 0
+        except AssertionError:
+            logging.error(
+                'Parameter error,please check the parameters.Program Aborted')
+            sys.exit()
+        else:
+            query = urllib2.quote(query)
+            urls = list()
+            if(num % self.RESULTS_PER_PAGE == 0):
+                pages = num / self.RESULTS_PER_PAGE
+            else:
+                pages = num / self.RESULTS_PER_PAGE + 1
+            for p in range(0, pages):
+                first = p * self.RESULTS_PER_PAGE+1 
+                url = 'https://search.disconnect.me/searchTerms/search?start=nav&option=Web&query='+query+'&ses=Bing&location_option=US&nextDDG=%2Fsearch%3Fq%3D'+query+'%26setmkt%3Den-US%26setplang%3Den-us%26setlang%3Den-us%26first%3D'+str(first)+'%26FORM%3DPERE&showIcons=false&filterIcons=none&js_enabled=1&source=None'
+                urls.append(url)
+            return urls
 
     @staticmethod
-    def task(self, url):
+    def task(self, url,engine_type):
         try_idx = 0
         search_results = list()
         logging.info("task(%s, try=%s): called", url, try_idx)
@@ -125,19 +146,22 @@ class BingSearch:
                 html = gzip.GzipFile(fileobj=StringIO.StringIO(html)).read()
             results = self.extractSearchResults(self, html, url)
             search_results.extend(results)
-            save_file = "results_google/" + \
-                url.split('?')[1].split('&')[2].split('=')[
-                    1] + "_" + url.split('%')[7] + ".json"
+            if engine_type =='google':
+                save_file = "results_disconnect/" + \
+                    engine_type+"_"+url.split('?')[1].split('&')[2].split('=')[1] + "_" + url.split('%')[7] + ".json"
+            if engine_type == 'bing':
+                save_file = "results_disconnect/" + \
+                    engine_type+"_"+url.split('?')[1].split('&')[2].split('=')[1] + "_" + url.split('%')[11] + ".json"
             try:
-                assert os.path.exists("results_bing") == True
+                assert os.path.exists("results_disconnect") == True
             except AssertionError:
-                os.makedirs("results_bing")
+                os.makedirs("results_disconnect")
             for r in search_results:
                 r.writeFile_json(save_file)
             return True
 
     @staticmethod
-    def task_generator(self):
+    def task_generator(self,engine_type):
         keywords = self.get_search_keywords(self)
         try:
             assert len(keywords) > 0
@@ -149,12 +173,16 @@ class BingSearch:
             bloom_filter = BloomFilter(
                 (self.RESULTS_NUM + 1) * self.RESULTS_NUM, 0.01)
             for keyword in keywords:
-                search_urls = self.url_generator(
-                    self, keyword, self.RESULTS_NUM)
+                if engine_type == 'google':
+                    search_urls = self.url_google_generator(
+                        self, keyword, self.RESULTS_NUM)
+                if engine_type == 'bing':
+                    search_urls = self.url_bing_generator(
+                        self, keyword, self.RESULTS_NUM)
                 for search_url in search_urls:
-                    yield gtaskpool.Task(self.task, [self, search_url])
+                    yield gtaskpool.Task(self.task, [self, search_url,engine_type])
 
-    def gtaskmanager(self):
+    def gtaskmanager(self,engine_type):
         #task_log = 'task_log.log'
         task_log = None
         gtaskpool.setlogging(logging.INFO,task_log)
@@ -172,8 +200,23 @@ class BingSearch:
         if useragents == []:
             useragents = [None]
 
-        gtaskpool.runtasks(self.task_generator(self))
+        gtaskpool.runtasks(self.task_generator(self,engine_type))
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        sys.stderr.write("Usage: ./batch_socks.py create|run|stop [args]\n") 
+        exit(1)
+    engine_type = sys.argv[1]
+    if engine_type == 'google':
+        pass
+    elif engine_type == 'bing':
+        pass
+    elif engine_type == 'yahoo':
+        pass
+    elif engine_type == 'duckduckgo':
+        pass
+    else:
+        sys.stderr.write("Usage: python disconnect_search.py google|bing|yahoo|duckduckgo\n")
+        exit(1)
     B = BingSearch()
-    B.gtaskmanager()
+    B.gtaskmanager(engine_type)
