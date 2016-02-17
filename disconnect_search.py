@@ -211,12 +211,8 @@ if __name__ == "__main__":
         pass
     elif engine_type == 'bing':
         pass
-    elif engine_type == 'yahoo':
-        pass
-    elif engine_type == 'duckduckgo':
-        pass
     else:
-        sys.stderr.write("Usage: python disconnect_search.py google|bing|yahoo|duckduckgo\n")
+        sys.stderr.write("Usage: python disconnect_search.py google|bing\n")
         exit(1)
     B = BingSearch()
     B.gtaskmanager(engine_type)
